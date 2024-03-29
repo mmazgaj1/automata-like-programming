@@ -1,0 +1,3 @@
+pub trait AutomataKey : PartialEq {
+    
+}
