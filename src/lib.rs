@@ -1,4 +1,3 @@
-pub mod key;
 pub mod automata_state;
 pub mod automata;
 pub mod simple_impl;
