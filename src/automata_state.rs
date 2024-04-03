@@ -2,32 +2,31 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::automata::NextState;
 
-pub trait AutomataState<K, Id, D> {
-    /// Identifier used for finding next state. Has to be unique within all states assigned as possible continuation for current state.
+pub trait AutomataState<Id, D> {
+    /// Identifier used for identifying current state. Has to return owned data, because it will be used in returned value.
     fn get_id_owned(&self) -> Id;
+    // TODO: Dunno, maybe should just use the owned id everywhere
     fn get_id(&self) -> &Id;
-    ///
-    /// Called after the state is chosen to be executed.
-    /// 
-    /// * `data` - Value passed to all executed states. Always mutable reference to the same data.
-    fn on_entry(&self, data: &mut D, key: Option<&K>) -> Result<(), String>;
-    /// Called when next state is known or automata ends it's life.
-    fn on_exit(&self, data: &mut D, next_state_id: Option<&Id>) -> Result<(), String>;
-    /// Searches for state identified by key from all assigned possible continuation states.
-    fn find_next_state(&self, key: &K) -> NextState<K, Id, D>;
-    fn is_key_matching(&self, key: &K) -> bool;
+    /// Based on graph like structure of automata representing execution of an action while going along an edge between states.
+    /// Usually state will choose next state based on its inner state and execute action assigned to it (or do nothing if no more states can be found).
+    /// Implementations have to rely on own mechanism for determining execution sequence.
+    fn execute_next_connection(&self, data: &mut D) -> Result<NextState<Id, D>, String>;
 }
 
-pub type SharedAutomataState<K, Id, D> = Rc<RefCell<dyn AutomataState<K, Id, D>>>;
+pub type SharedAutomataState<Id, D> = Rc<RefCell<dyn AutomataState<Id, D>>>;
 
-pub fn new_shared_automata_state<K, Id, D, S: AutomataState<K, Id, D> + 'static>(state: S) -> SharedAutomataState<K, Id, D> {
+/// Creates shared reference for given state. Returned type signature is: Rc<RefCell<dyn AutomataState>>
+pub fn new_shared_automata_state<Id, D, S: AutomataState<Id, D> + 'static>(state: S) -> SharedAutomataState<Id, D> {
     Rc::new(RefCell::new(state))
 }
 
-pub fn new_shared_concrete_state<K, Id, D, S: AutomataState<K, Id, D> + 'static>(state: S) -> Rc<RefCell<S>> {
+/// Creates shared reference for given state. Returned type signature is: Rc<RefCell<S>> where S is a concrete
+/// implementation of AutomataState.
+pub fn new_shared_concrete_state<Id, D, S: AutomataState<Id, D> + 'static>(state: S) -> Rc<RefCell<S>> {
     Rc::new(RefCell::new(state))
 }
 
-pub fn convert_to_dyn_reference<K, Id, D, S: AutomataState<K, Id, D> + 'static>(state: Rc<RefCell<S>>) -> SharedAutomataState<K, Id, D> {
-    state as SharedAutomataState<K, Id, D>
+/// Converts type signature from using concrete implementation type to 'dyn AutomataState'.
+pub fn convert_to_dyn_reference<Id, D, S: AutomataState<Id, D> + 'static>(state: Rc<RefCell<S>>) -> SharedAutomataState<Id, D> {
+    state as SharedAutomataState<Id, D>
 }

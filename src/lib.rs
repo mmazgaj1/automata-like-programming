@@ -1,6 +1,7 @@
 pub mod automata_state;
 pub mod automata;
 pub mod simple_impl;
+pub mod connection;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

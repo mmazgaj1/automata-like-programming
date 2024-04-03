@@ -1,55 +1,69 @@
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-use crate::{automata::NextState, automata_state::{convert_to_dyn_reference, AutomataState, SharedAutomataState}};
+use crate::automata_state::{convert_to_dyn_reference, AutomataState, SharedAutomataState};
 
-pub struct SimpleStateImplementation<K, Id, D, FEntry, FExit> where FEntry: Fn(&mut D, Option<&K>) -> Result<(), String>, K: PartialEq, FExit: Fn(&mut D, Option<&Id>) -> Result<(), String> {
+/// Represents data, that can provide a key which will be used while searching for next state. Usually will use iterator
+/// based on a sequence.
+pub trait KeyProvidingData<K> {
+    fn next_key(&mut self) -> Option<K>;
+}
+
+pub struct SimpleInterStateConnection<K, Id, D> where Id: Copy{
+    matcher: Box<dyn Fn(&K) -> bool>,
+    exec_function: Box<dyn Fn(&mut D) -> Result<(), String>>,
+    connected_state: SharedAutomataState<Id, D>,
+}
+
+impl <K, Id, D> SimpleInterStateConnection<K, Id, D> where Id: Copy {
+    pub fn new<M: Fn(&K) -> bool + 'static, FExec: Fn(&mut D) -> Result<(), String> + 'static, S: AutomataState<Id, D> + 'static>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
+        Self { matcher: Box::new(matcher), exec_function: Box::new(exec_function), connected_state: convert_to_dyn_reference(Rc::clone(next_state)) }
+    }
+}
+
+pub struct SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy{
     _phantom: PhantomData<D>,
-    key: K,
     id: Id,
-    entry_func: FEntry,
-    exit_func: FExit,
-    next_states: Vec<SharedAutomataState<K, Id, D>>,
+    next_states: Vec<SimpleInterStateConnection<K, Id, D>>,
 }
 
-impl <K, Id, D, FEntry, FExit> SimpleStateImplementation<K, Id, D, FEntry, FExit> where FEntry: Fn(&mut D, Option<&K>) -> Result<(), String>, K: PartialEq, FExit: Fn(&mut D, Option<&Id>) -> Result<(), String> {
-    pub fn new(key: K, entry_func: FEntry, id: Id, exit_func: FExit) -> Self {
-        Self { key, _phantom: PhantomData{}, entry_func, next_states: Vec::new(), id, exit_func}
+impl <K, Id, D> SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
+    pub fn new(id: Id) -> Self {
+        Self { _phantom: PhantomData{}, next_states: Vec::new(), id}
     }
-    pub fn register_next_state<S: 'static>(&mut self, state: &Rc<RefCell<S>>) -> () 
-    where S: AutomataState<K, Id, D>
+
+    pub fn register_connection(&mut self, connection: SimpleInterStateConnection<K, Id, D>) -> () 
     {
-        self.next_states.push(convert_to_dyn_reference(Rc::clone(state)));
+        self.next_states.push(connection);
+    }
+
+    pub fn register_next_state<M: Fn(&K) -> bool + 'static, FExec: Fn(&mut D) -> Result<(), String> + 'static, S: AutomataState<Id, D> + 'static>(&mut self, matcher: M, exec_function: FExec, state: &Rc<RefCell<S>>) -> () 
+    {
+        self.register_connection(SimpleInterStateConnection::new(matcher, exec_function, state));
     }
 }
 
-impl<K, Id, D, FEntry, FExit> AutomataState<K, Id, D> for SimpleStateImplementation<K, Id, D, FEntry, FExit> where FEntry: Fn(&mut D, Option<&K>) -> Result<(), String>, K: PartialEq, Id: Copy, FExit: Fn(&mut D, Option<&Id>) -> Result<(), String> {
+impl<K, Id, D> AutomataState<Id, D> for SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
     fn get_id_owned(&self) -> Id {
         self.id
     }
     
-    fn on_entry(&self, data: &mut D, key: Option<&K>) -> Result<(), String> {
-        (self.entry_func)(data, key)
-    }
-    
-    fn find_next_state(&self, key: &K) -> NextState<K, Id, D> {
-        for n in &self.next_states {
-            if n.borrow().is_key_matching(key) {
-                return NextState::Continue(Rc::clone(n));
-            }
-        }
-        NextState::NotFound
-    }
-    
-    fn is_key_matching(&self, key: &K) -> bool {
-        &self.key == key
-    }
-    
-    fn on_exit(&self, data: &mut D, next_state_id: Option<&Id>) -> Result<(), String> {
-        (self.exit_func)(data, next_state_id)
-    }
-    
     fn get_id(&self) -> &Id {
         &self.id
+    }
+    
+    fn execute_next_connection(&self, data: &mut D) -> Result<crate::automata::NextState<Id, D>, String> {
+        let next_key = data.next_key();
+        if let Option::Some(k) = next_key {
+            for c in &self.next_states {
+                if (c.matcher)(&k) {
+                    (c.exec_function)(data)?;
+                    return Result::Ok(crate::automata::NextState::Continue(Rc::clone(&c.connected_state)));
+                }
+            }
+            Result::Ok(crate::automata::NextState::NotFound)
+        } else {
+            Result::Ok(crate::automata::NextState::ProcessEnded)
+        }
     }
 }
 
@@ -59,21 +73,32 @@ pub fn empty_exit_func<D, Id>(_: &mut D, _: Option<&Id>) -> Result<(), String> {
 
 #[cfg(test)]
 mod test {
-    use crate::{automata::{Automata, AutomataResult, KeyIter}, automata_state::new_shared_concrete_state, simple_impl::simple_state::{empty_exit_func, SimpleStateImplementation}};
+    use crate::{automata::{Automata, AutomataResult}, automata_state::new_shared_concrete_state, simple_impl::simple_state::{SimpleInterStateConnection, SimpleStateImplementation}};
 
-    struct TestKeyIter {
+    use super::KeyProvidingData;
+
+    struct TestData {
+        buffer: String,
         end: u8,
         current: u8,
     }
 
-    impl TestKeyIter {
+    impl TestData {
         pub fn new(start: u8, end: u8) -> Self {
-            Self { end, current: start }
+            Self { buffer: String::new(), end, current: start }
+        }
+
+        pub fn append_text(&mut self, text: &str) -> () {
+            self.buffer.push_str(text);
+        }
+
+        pub fn data(&self) -> &String {
+            &self.buffer
         }
     }
 
-    impl KeyIter<u8> for TestKeyIter {
-        fn next(&mut self) -> Option<u8> {
+    impl KeyProvidingData<u8> for TestData {
+        fn next_key(&mut self) -> Option<u8> {
             if self.current >= self.end {
                 return Option::None
             }
@@ -85,26 +110,39 @@ mod test {
 
     #[test]
     fn automata_with_simple_states_works() -> () {
-        let data = String::with_capacity(11);
-        let mut key_iter = TestKeyIter::new(2, 4);
+        let data = TestData::new(1, 4);
         let mut automata = Automata::new(|| {
-            let world_state = new_shared_concrete_state(SimpleStateImplementation::new(3, |d: &mut String, _| {
-                d.push_str("world!");
+            let world_state = new_shared_concrete_state(SimpleStateImplementation::new(3));
+            let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2));
+            simple_state.borrow_mut().register_next_state(|k| k == &2, |d: &mut TestData| {
+                d.append_text(" simple ");
                 Result::Ok(())
-            }, 3, empty_exit_func));
-            let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2, |d: &mut String, _| {
-                d.push_str(" simple ");
+            }, &world_state);
+            let hello_state = new_shared_concrete_state(SimpleStateImplementation::new(1));
+            hello_state.borrow_mut().register_next_state(|k| k == &1, |d: &mut TestData| {
+                d.append_text("Hello");
                 Result::Ok(())
-            }, 2, empty_exit_func));
-            simple_state.borrow_mut().register_next_state(&world_state);
-            let hello_state = new_shared_concrete_state(SimpleStateImplementation::new(1, |d: &mut String, _| {
-                d.push_str("Hello");
+            }, &simple_state);
+            world_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &3, |d: &mut TestData| {
+                d.append_text("world!");
                 Result::Ok(())
-            }, 1, empty_exit_func));
-            hello_state.borrow_mut().register_next_state(&simple_state);
+            }, &hello_state));
             hello_state
         }, data);
-        assert!(matches!(automata.run(&mut key_iter), AutomataResult::EmptyIter(3)));
-        assert_eq!(automata.data(), "Hello simple world!");
+        let run_result = automata.run();
+        assert_eq!(automata.data().data(), "Hello simple world!");
+        assert!(matches!(run_result, AutomataResult::EmptyIter(1)));
+    }
+
+    // TBF I don't know if this situation should be Ok or Err
+    #[test]
+    fn automata_with_simple_states_works_no_next_state_found() -> () {
+        let data = TestData::new(2, 3);
+        let mut automata = Automata::new(|| {
+            new_shared_concrete_state(SimpleStateImplementation::new(1))
+        }, data);
+        let run_result = automata.run();
+        assert_eq!(automata.data().data(), "");
+        assert!(matches!(run_result, AutomataResult::CouldNotFindNextState(1)));
     }
 }
