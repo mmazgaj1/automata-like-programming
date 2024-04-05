@@ -10,12 +10,12 @@ pub trait KeyProvidingData<K> {
 
 pub struct SimpleInterStateConnection<'a, K, Id, D> where Id: Copy{
     matcher: Box<dyn Fn(&K) -> bool + 'a>,
-    exec_function: Box<dyn Fn(&mut D) -> Result<(), String> + 'a>,
+    exec_function: Box<dyn Fn(&mut D, Option<&K>) -> Result<(), String> + 'a>,
     connected_state: SharedAutomataState<'a, Id, D>,
 }
 
 impl <'a, K, Id, D> SimpleInterStateConnection<'a, K, Id, D> where Id: Copy {
-    pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
+    pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D, Option<&K>) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
         Self { matcher: Box::new(matcher), exec_function: Box::new(exec_function), connected_state: convert_to_dyn_reference(Rc::clone(next_state)) }
     }
 }
@@ -36,7 +36,7 @@ impl <'a, K, Id, D> SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidin
         self.next_states.push(connection);
     }
 
-    pub fn register_next_state<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(&mut self, matcher: M, exec_function: FExec, state: &Rc<RefCell<S>>) -> () 
+    pub fn register_next_state<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D, Option<&K>) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(&mut self, matcher: M, exec_function: FExec, state: &Rc<RefCell<S>>) -> () 
     {
         self.register_connection(SimpleInterStateConnection::new(matcher, exec_function, state));
     }
@@ -56,7 +56,7 @@ impl<'a, K, Id, D> AutomataState<'a, Id, D> for SimpleStateImplementation<'a, K,
         if let Option::Some(k) = next_key {
             for c in &self.next_states {
                 if (c.matcher)(&k) {
-                    (c.exec_function)(data)?;
+                    (c.exec_function)(data, Option::Some(&k))?;
                     return Result::Ok(crate::automata::NextState::Continue(Rc::clone(&c.connected_state)));
                 }
             }
@@ -114,16 +114,16 @@ mod test {
         let mut automata = Automata::new(|| {
             let world_state = new_shared_concrete_state(SimpleStateImplementation::new(3));
             let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2));
-            simple_state.borrow_mut().register_next_state(|k| k == &2, |d: &mut TestData| {
+            simple_state.borrow_mut().register_next_state(|k| k == &2, |d: &mut TestData, _| {
                 d.append_text(" simple ");
                 Result::Ok(())
             }, &world_state);
             let hello_state = new_shared_concrete_state(SimpleStateImplementation::new(1));
-            hello_state.borrow_mut().register_next_state(|k| k == &1, |d: &mut TestData| {
+            hello_state.borrow_mut().register_next_state(|k| k == &1, |d: &mut TestData, _| {
                 d.append_text("Hello");
                 Result::Ok(())
             }, &simple_state);
-            world_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &3, |d: &mut TestData| {
+            world_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &3, |d: &mut TestData, _| {
                 d.append_text("world!");
                 Result::Ok(())
             }, &hello_state));
