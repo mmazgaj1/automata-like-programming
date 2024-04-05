@@ -2,8 +2,8 @@ use std::{marker::PhantomData, rc::Rc};
 
 use crate::automata_state::SharedAutomataState;
 
-pub enum NextState<Id, D> {
-    Continue(SharedAutomataState<Id, D>),
+pub enum NextState<'a, Id, D> {
+    Continue(SharedAutomataState<'a, Id, D>),
     ProcessEnded,
     NotFound,
 }
@@ -12,8 +12,8 @@ pub trait KeyIter<K> {
     fn next(&mut self) -> Option<K>;
 }
 
-pub struct Automata<Id, D> {
-    start_state: SharedAutomataState<Id, D>,
+pub struct Automata<'a, Id, D> {
+    start_state: SharedAutomataState<'a, Id, D>,
     _data_phantom: PhantomData<D>,
 }
 
@@ -24,8 +24,8 @@ pub enum AutomataResult<Id> {
     Error(String)
 }
 
-impl <Id, D> Automata<Id, D> {
-    pub fn new<FInit: Fn() -> SharedAutomataState<Id, D>>(f_state_graph_init: FInit) -> Self {
+impl <'a, Id, D> Automata<'a, Id, D> {
+    pub fn new<FInit: Fn() -> SharedAutomataState<'a, Id, D>>(f_state_graph_init: FInit) -> Self {
         Self {start_state: f_state_graph_init(), _data_phantom: PhantomData{}}
     }
 
@@ -64,17 +64,17 @@ mod test {
 
     use super::{Automata, NextState};
 
-    pub struct TestNodeHello {
-        next_state: Option<SharedAutomataState<u8, String>>
+    pub struct TestNodeHello<'a> {
+        next_state: Option<SharedAutomataState<'a, u8, String>>
     }
 
-    impl TestNodeHello {
-        pub fn new(next_state: Option<SharedAutomataState<u8, String>>) -> Self {
+    impl<'a> TestNodeHello <'a> {
+        pub fn new(next_state: Option<SharedAutomataState<'a, u8, String>>) -> Self {
             Self { next_state }
         }
     }
 
-    impl AutomataState<u8, String> for TestNodeHello {
+    impl <'a> AutomataState<'a, u8, String> for TestNodeHello<'a> {
         fn get_id_owned(&self) -> u8 {
             1
         }
@@ -83,7 +83,7 @@ mod test {
             &1
         }
         
-        fn execute_next_connection(&self, data: &mut String) -> Result<NextState<u8, String>, String> {
+        fn execute_next_connection(&self, data: &mut String) -> Result<NextState<'a, u8, String>, String> {
             data.push_str("Hello");
             if let Option::Some(nxt_state) = &self.next_state {
                 Result::Ok(NextState::Continue(Rc::clone(nxt_state)))
@@ -102,7 +102,7 @@ mod test {
         }
     }
 
-    impl AutomataState<u8, String> for TestNodeWorld {
+    impl <'a> AutomataState<'a, u8, String> for TestNodeWorld {
         fn get_id_owned(&self) -> u8 {
             2
         }
@@ -111,7 +111,7 @@ mod test {
             &2
         }
         
-        fn execute_next_connection(&self, data: &mut String) -> Result<NextState<u8, String>, String> {
+        fn execute_next_connection(&self, data: &mut String) -> Result<NextState<'a, u8, String>, String> {
             data.push_str(" world");
             Result::Ok(NextState::ProcessEnded)
         }

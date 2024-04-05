@@ -8,41 +8,41 @@ pub trait KeyProvidingData<K> {
     fn next_key(&mut self) -> Option<K>;
 }
 
-pub struct SimpleInterStateConnection<K, Id, D> where Id: Copy{
-    matcher: Box<dyn Fn(&K) -> bool>,
-    exec_function: Box<dyn Fn(&mut D) -> Result<(), String>>,
-    connected_state: SharedAutomataState<Id, D>,
+pub struct SimpleInterStateConnection<'a, K, Id, D> where Id: Copy{
+    matcher: Box<dyn Fn(&K) -> bool + 'a>,
+    exec_function: Box<dyn Fn(&mut D) -> Result<(), String> + 'a>,
+    connected_state: SharedAutomataState<'a, Id, D>,
 }
 
-impl <K, Id, D> SimpleInterStateConnection<K, Id, D> where Id: Copy {
-    pub fn new<M: Fn(&K) -> bool + 'static, FExec: Fn(&mut D) -> Result<(), String> + 'static, S: AutomataState<Id, D> + 'static>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
+impl <'a, K, Id, D> SimpleInterStateConnection<'a, K, Id, D> where Id: Copy {
+    pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
         Self { matcher: Box::new(matcher), exec_function: Box::new(exec_function), connected_state: convert_to_dyn_reference(Rc::clone(next_state)) }
     }
 }
 
-pub struct SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy{
+pub struct SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy{
     _phantom: PhantomData<D>,
     id: Id,
-    next_states: Vec<SimpleInterStateConnection<K, Id, D>>,
+    next_states: Vec<SimpleInterStateConnection<'a, K, Id, D>>,
 }
 
-impl <K, Id, D> SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
+impl <'a, K, Id, D> SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
     pub fn new(id: Id) -> Self {
         Self { _phantom: PhantomData{}, next_states: Vec::new(), id}
     }
 
-    pub fn register_connection(&mut self, connection: SimpleInterStateConnection<K, Id, D>) -> () 
+    pub fn register_connection(&mut self, connection: SimpleInterStateConnection<'a, K, Id, D>) -> () 
     {
         self.next_states.push(connection);
     }
 
-    pub fn register_next_state<M: Fn(&K) -> bool + 'static, FExec: Fn(&mut D) -> Result<(), String> + 'static, S: AutomataState<Id, D> + 'static>(&mut self, matcher: M, exec_function: FExec, state: &Rc<RefCell<S>>) -> () 
+    pub fn register_next_state<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D) -> Result<(), String> + 'a, S: AutomataState<'a, Id, D> + 'a>(&mut self, matcher: M, exec_function: FExec, state: &Rc<RefCell<S>>) -> () 
     {
         self.register_connection(SimpleInterStateConnection::new(matcher, exec_function, state));
     }
 }
 
-impl<K, Id, D> AutomataState<Id, D> for SimpleStateImplementation<K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
+impl<'a, K, Id, D> AutomataState<'a, Id, D> for SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
     fn get_id_owned(&self) -> Id {
         self.id
     }
@@ -51,7 +51,7 @@ impl<K, Id, D> AutomataState<Id, D> for SimpleStateImplementation<K, Id, D> wher
         &self.id
     }
     
-    fn execute_next_connection(&self, data: &mut D) -> Result<crate::automata::NextState<Id, D>, String> {
+    fn execute_next_connection(&self, data: &mut D) -> Result<crate::automata::NextState<'a, Id, D>, String> {
         let next_key = data.next_key();
         if let Option::Some(k) = next_key {
             for c in &self.next_states {
