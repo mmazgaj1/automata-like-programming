@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{marker::PhantomData, rc::Rc};
 
 use crate::automata_state::SharedAutomataState;
 
@@ -14,7 +14,7 @@ pub trait KeyIter<K> {
 
 pub struct Automata<Id, D> {
     start_state: SharedAutomataState<Id, D>,
-    data: D,
+    _data_phantom: PhantomData<D>,
 }
 
 pub enum AutomataResult<Id> {
@@ -25,16 +25,16 @@ pub enum AutomataResult<Id> {
 }
 
 impl <Id, D> Automata<Id, D> {
-    pub fn new<FInit: Fn() -> SharedAutomataState<Id, D>>(f_state_graph_init: FInit, data: D) -> Self {
-        Self {start_state: f_state_graph_init(), data}
+    pub fn new<FInit: Fn() -> SharedAutomataState<Id, D>>(f_state_graph_init: FInit) -> Self {
+        Self {start_state: f_state_graph_init(), _data_phantom: PhantomData{}}
     }
 
-    pub fn run(&mut self) -> AutomataResult<Id> {
+    pub fn run(&mut self, data: &mut D) -> AutomataResult<Id> {
         // let mut is_running = true;
         let mut current_state = Rc::clone(&self.start_state);
         // let mut current_key = Option::None;
         loop {
-            let connection_execute_result = current_state.borrow().execute_next_connection(&mut self.data);
+            let connection_execute_result = current_state.borrow().execute_next_connection(data);
             match connection_execute_result {
                 Err(err_msg) => {
                     // println!("{}", err_msg); 
@@ -51,9 +51,9 @@ impl <Id, D> Automata<Id, D> {
         };
     }
 
-    pub fn data(&self) -> &D {
-        &self.data
-    }
+    // pub fn data(&self) -> &D {
+    //     &self.data
+    // }
 }
 
 #[cfg(test)]
@@ -119,15 +119,15 @@ mod test {
 
     #[test]
     fn automata_2_nodes_works() -> () {
-        let data = String::with_capacity(11);
+        let mut data = String::with_capacity(11);
         // let mut key_iter = TestKeyIter::new(2, 3);
         let mut automata = Automata::new(|| {
             let world_state: SharedAutomataState<u8, String> = new_shared_automata_state(TestNodeWorld::new());
             let hello_state: SharedAutomataState<u8, String> = new_shared_automata_state(TestNodeHello::new(Option::Some(Rc::clone(&world_state))));
             hello_state
-        }, data);
-        let run_res = automata.run();
+        });
+        let run_res = automata.run(&mut data);
         assert!(matches!(run_res, AutomataResult::EmptyIter(2)));
-        assert_eq!(automata.data, "Hello world");
+        assert_eq!(data, "Hello world");
     }
 }

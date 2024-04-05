@@ -110,7 +110,7 @@ mod test {
 
     #[test]
     fn automata_with_simple_states_works() -> () {
-        let data = TestData::new(1, 4);
+        let mut data = TestData::new(1, 4);
         let mut automata = Automata::new(|| {
             let world_state = new_shared_concrete_state(SimpleStateImplementation::new(3));
             let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2));
@@ -128,21 +128,21 @@ mod test {
                 Result::Ok(())
             }, &hello_state));
             hello_state
-        }, data);
-        let run_result = automata.run();
-        assert_eq!(automata.data().data(), "Hello simple world!");
+        });
+        let run_result = automata.run(&mut data);
+        assert_eq!(data.data(), "Hello simple world!");
         assert!(matches!(run_result, AutomataResult::EmptyIter(1)));
     }
 
     // TBF I don't know if this situation should be Ok or Err
     #[test]
     fn automata_with_simple_states_works_no_next_state_found() -> () {
-        let data = TestData::new(2, 3);
+        let mut data = TestData::new(2, 3);
         let mut automata = Automata::new(|| {
             new_shared_concrete_state(SimpleStateImplementation::new(1))
-        }, data);
-        let run_result = automata.run();
-        assert_eq!(automata.data().data(), "");
+        });
+        let run_result = automata.run(&mut data);
+        assert_eq!(data.data(), "");
         assert!(matches!(run_result, AutomataResult::CouldNotFindNextState(1)));
     }
 }
