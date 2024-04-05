@@ -16,13 +16,13 @@ pub trait AutomataState<'a, Id, D> {
 pub type SharedAutomataState<'a, Id, D> = Rc<RefCell<dyn AutomataState<'a, Id, D> + 'a>>;
 
 /// Creates shared reference for given state. Returned type signature is: Rc<RefCell<dyn AutomataState>>
-pub fn new_shared_automata_state<'a, Id, D, S: AutomataState<'a, Id, D> + 'static>(state: S) -> SharedAutomataState<'a, Id, D> {
+pub fn new_shared_automata_state<'a, Id, D, S: AutomataState<'a, Id, D> + 'a>(state: S) -> SharedAutomataState<'a, Id, D> {
     Rc::new(RefCell::new(state))
 }
 
 /// Creates shared reference for given state. Returned type signature is: Rc<RefCell<S>> where S is a concrete
 /// implementation of AutomataState.
-pub fn new_shared_concrete_state<'a, Id, D, S: AutomataState<'a, Id, D> + 'static>(state: S) -> Rc<RefCell<S>> {
+pub fn new_shared_concrete_state<'a, Id, D, S: AutomataState<'a, Id, D> + 'a>(state: S) -> Rc<RefCell<S>> {
     Rc::new(RefCell::new(state))
 }
 
