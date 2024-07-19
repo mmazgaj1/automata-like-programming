@@ -1,19 +1,6 @@
-pub mod automata_state;
-pub mod automata;
+/// Basic part of automaton representing a node which is connected to either other nodes or itself.
+pub mod automaton_state;
+/// Core mechanism representing an automaton that travels through defined states.
+pub mod automaton;
+/// Simple implementations of automaton state.
 pub mod simple_impl;
-pub mod connection;
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
