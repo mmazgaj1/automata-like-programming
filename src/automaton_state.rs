@@ -17,18 +17,18 @@ pub trait AutomatonState<'a, Id, D> {
 
 pub type SharedAutomatonState<'a, Id, D> = Rc<RefCell<dyn AutomatonState<'a, Id, D> + 'a>>;
 
-/// Creates shared reference for given state. Returned type signature is: Rc<RefCell<dyn AutomatonState>>
+/// Creates shared reference for given state. Returned type signature is: `Rc<RefCell<dyn AutomatonState>>`
 pub fn new_shared_automaton_state<'a, Id, D, S: AutomatonState<'a, Id, D> + 'a>(state: S) -> SharedAutomatonState<'a, Id, D> {
     Rc::new(RefCell::new(state))
 }
 
-/// Creates shared reference for given state. Returned type signature is: Rc<RefCell<S>> where S is a concrete
+/// Creates shared reference for given state. Returned type signature is: `Rc<RefCell<S>>` where S is a concrete
 /// implementation of AutomatonState.
 pub fn new_shared_concrete_state<'a, Id, D, S: AutomatonState<'a, Id, D> + 'a>(state: S) -> Rc<RefCell<S>> {
     Rc::new(RefCell::new(state))
 }
 
-/// Converts type signature from using concrete implementation type to 'dyn AutomatonState'.
+/// Converts type signature from using concrete implementation type to `dyn AutomatonState`.
 pub fn convert_to_dyn_reference<'a, Id, D, S: AutomatonState<'a, Id, D> + 'a>(state: Rc<RefCell<S>>) -> SharedAutomatonState<'a, Id, D> {
     state as SharedAutomatonState<'a, Id, D>
 }

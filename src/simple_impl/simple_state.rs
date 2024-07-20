@@ -25,12 +25,12 @@ pub struct SimpleInterStateConnection<'a, K, Id, D> where Id: Copy + 'a, K: 'a, 
 }
 
 impl <'a, K, Id, D> SimpleInterStateConnection<'a, K, Id, D> where Id: Copy {
-    /// Creates new connection with specified matcher an a closure that will be executed when this connection is matched.
+    /// Creates new connection with specified matcher and a procedure that will be executed when this connection is matched.
     pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D, &K) -> Result<(), String> + 'a, S: AutomatonState<'a, Id, D> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
         Self { matcher: Box::new(matcher), exec_function: Box::new(exec_function), connected_state: convert_to_dyn_reference(Rc::clone(next_state)) }
     }
 
-    /// Connection to be used as an intermediate between states. Does nothing when matched.
+    /// Creates new connection with specified matcher. Does nothing when matched (designed to be used with intermediate states).
     pub fn new_no_action<M: Fn(&K) -> bool + 'a, S: AutomatonState<'a, Id, D> + 'a>(matcher: M, next_state: &Rc<RefCell<S>>) -> Self {
         Self::new(matcher, Self::do_nothing, next_state)
     }

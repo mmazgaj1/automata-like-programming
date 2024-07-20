@@ -2,9 +2,13 @@ use std::{marker::PhantomData, rc::Rc};
 
 use crate::automaton_state::SharedAutomatonState;
 
+/// Result of an attempt of determining next target state.
 pub enum NextState<'a, Id, D> {
+    /// Automaton should take provided state for the next iteration.
     Continue(SharedAutomatonState<'a, Id, D>),
+    /// The input data has ended so there is no way for matching next state.
     ProcessEnded,
+    /// There are no possible target states for received input data.
     NotFound,
 }
 
@@ -13,7 +17,7 @@ pub trait KeyIter<K> {
     fn next(&mut self) -> Option<K>;
 }
 
-/// Finit
+/// Finite-state automaton that crawls around a specified graph until no more state changes can be done.
 pub struct Automaton<'a, Id, D> {
     start_state: SharedAutomatonState<'a, Id, D>,
     _data_phantom: PhantomData<D>,
@@ -22,19 +26,17 @@ pub struct Automaton<'a, Id, D> {
 /// Provides information on why automaton has stopped executing.
 pub enum AutomatonResult<Id> {
     // Ok, // Not needed - should end because no more keys, no state could be found or state forces the end of process (no default ending).
-    /// Automaton execution ended because no more keys could be extracted.
+    /// Automaton execution ended because no more keys could be extracted. Contains identifier of current state in automaton execution - no more
+    /// keys could be extracted after reaching this state.
     EmptyIter(
-        /// Identifier of current state in automaton execution - no more keys could be extracted after reaching this state.
         Id
     ),
-    /// No connection could be matched for a key.
+    /// No connection could be matched for a key. Contains identifier of current state in automaton execution - no connections could be found on this state for given key.
     CouldNotFindNextState(
-        /// Identifier of current state in automaton execution - no connections could be found on this state for given key.
         Id
     ),
-    /// An error occured while executing function assigned to connection.
+    /// An error occured while executing function assigned to connection. Contains error message from execution
     Error(
-        /// Error message from execution
         String
     )
 }
@@ -67,7 +69,7 @@ impl <'a, Id, D> Automaton<'a, Id, D> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use std::rc::Rc;
 
     use crate::{automaton::AutomatonResult, automaton_state::{new_shared_automaton_state, AutomatonState, SharedAutomatonState}};
