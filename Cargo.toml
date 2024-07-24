@@ -2,6 +2,9 @@
 name = "automata-like-programming"
 version = "0.1.0"
 edition = "2021"
+authors = ["Marcin Mazgaj <mmazgaj@protonmail.com>"]
+license = "MIT"
+description = "Library that provides mechanisms for controlling the flow of execution in imitation of an automaton."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

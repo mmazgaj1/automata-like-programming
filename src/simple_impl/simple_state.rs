@@ -18,25 +18,25 @@ pub trait KeyProvidingData<K> {
 /// * `exec_function` - Operation that will be executing while changing state.
 /// * `connected_state` - State that will be returned if this connection is matched. Can be the same state that this
 /// connection will be assigned to.
-pub struct SimpleInterStateConnection<'a, K, Id, D> where Id: Copy + 'a, K: 'a, D: 'a {
+pub struct SimpleInterStateConnection<'a, K, Id, D, E> where Id: Copy + 'a, K: 'a, D: 'a, E: 'a {
     matcher: Box<dyn Fn(&K) -> bool + 'a>,
-    exec_function: Box<dyn Fn(&mut D, &K) -> Result<(), String> + 'a>,
-    connected_state: SharedAutomatonState<'a, Id, D>,
+    exec_function: Box<dyn Fn(&mut D, &K) -> Result<(), E> + 'a>,
+    connected_state: SharedAutomatonState<'a, Id, D, E>,
 }
 
-impl <'a, K, Id, D> SimpleInterStateConnection<'a, K, Id, D> where Id: Copy {
+impl <'a, K, Id, D, E> SimpleInterStateConnection<'a, K, Id, D, E> where Id: Copy {
     /// Creates new connection with specified matcher and a procedure that will be executed when this connection is matched.
-    pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D, &K) -> Result<(), String> + 'a, S: AutomatonState<'a, Id, D> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
+    pub fn new<M: Fn(&K) -> bool + 'a, FExec: Fn(&mut D, &K) -> Result<(), E> + 'a, S: AutomatonState<'a, Id, D, E> + 'a>(matcher: M, exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
         Self { matcher: Box::new(matcher), exec_function: Box::new(exec_function), connected_state: convert_to_dyn_reference(Rc::clone(next_state)) }
     }
 
     /// Creates new connection with specified matcher. Does nothing when matched (designed to be used with intermediate states).
-    pub fn new_no_action<M: Fn(&K) -> bool + 'a, S: AutomatonState<'a, Id, D> + 'a>(matcher: M, next_state: &Rc<RefCell<S>>) -> Self {
+    pub fn new_no_action<M: Fn(&K) -> bool + 'a, S: AutomatonState<'a, Id, D, E> + 'a>(matcher: M, next_state: &Rc<RefCell<S>>) -> Self {
         Self::new(matcher, Self::do_nothing, next_state)
     }
 
     /// Does nothing
-    fn do_nothing(_:&mut D, _:&K) -> Result<(), String> {
+    fn do_nothing(_:&mut D, _:&K) -> Result<(), E> {
         Result::Ok(())
     }
 }
@@ -45,13 +45,13 @@ impl <'a, K, Id, D> SimpleInterStateConnection<'a, K, Id, D> where Id: Copy {
 /// Depends on data for providing next key. This key is then used to match a connection from the defined list.
 /// Each state has an assigned identifier which is used to inform which state did the automaton stop on.
 /// Identifier is copied to the result meaning it has to implement the *Copy* trait.
-pub struct SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy{
+pub struct SimpleStateImplementation<'a, K, Id, D, E> where D: KeyProvidingData<K>, Id: Copy{
     _phantom: PhantomData<D>,
     id: Id,
-    next_states: Vec<SimpleInterStateConnection<'a, K, Id, D>>,
+    next_states: Vec<SimpleInterStateConnection<'a, K, Id, D, E>>,
 }
 
-impl <'a, K, Id, D> SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
+impl <'a, K, Id, D, E> SimpleStateImplementation<'a, K, Id, D, E> where D: KeyProvidingData<K>, Id: Copy {
     /// Creates new simple state with provided identifier.
     /// 
     /// * `id` - Identifier of this state which will be copied into result when automaton stops on this state.
@@ -60,13 +60,13 @@ impl <'a, K, Id, D> SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidin
     }
 
     /// Adds connection to possible next states of current state.
-    pub fn register_connection(&mut self, connection: SimpleInterStateConnection<'a, K, Id, D>) -> () 
+    pub fn register_connection(&mut self, connection: SimpleInterStateConnection<'a, K, Id, D, E>) -> () 
     {
         self.next_states.push(connection);
     }
 }
 
-impl<'a, K, Id, D> AutomatonState<'a, Id, D> for SimpleStateImplementation<'a, K, Id, D> where D: KeyProvidingData<K>, Id: Copy {
+impl<'a, K, Id, D, E> AutomatonState<'a, Id, D, E> for SimpleStateImplementation<'a, K, Id, D, E> where D: KeyProvidingData<K>, Id: Copy {
     /// Returns owned copy of identifier of this state.
     fn get_id_owned(&self) -> Id {
         self.id
@@ -79,7 +79,7 @@ impl<'a, K, Id, D> AutomatonState<'a, Id, D> for SimpleStateImplementation<'a, K
 
     /// Finds connection by popping key from key iterator. Executes assigned function and returns next state if everything goes
     /// alright. 
-    fn execute_next_connection(&self, data: &mut D) -> Result<crate::automaton::NextState<'a, Id, D>, String> {
+    fn execute_next_connection(&self, data: &mut D) -> Result<crate::automaton::NextState<'a, Id, D, E>, E> {
         let next_key = data.next_key();
         if let Option::Some(k) = next_key {
             for c in &self.next_states {
@@ -141,7 +141,8 @@ mod test {
                 let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2));
                 simple_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &2, |d: &mut TestData, _| {
                     d.append_text(" simple ");
-                    Result::Ok(())
+                    let res: Result<(), String> = Result::Ok(());
+                    res
                 }, &world_state));
                 let hello_state = new_shared_concrete_state(SimpleStateImplementation::new(1));
                 hello_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &1, |d: &mut TestData, _| {
@@ -166,7 +167,7 @@ mod test {
             let mut automaton = Automaton::new(|| {
                 new_shared_concrete_state(SimpleStateImplementation::new(1))
             });
-            let run_result = automaton.run(&mut data);
+            let run_result: AutomatonResult<u32, String> = automaton.run(&mut data);
             assert_eq!(data.data(), "");
             assert!(matches!(run_result, AutomatonResult::CouldNotFindNextState(1)));
         }

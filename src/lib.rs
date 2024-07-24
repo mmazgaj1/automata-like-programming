@@ -11,25 +11,25 @@
 //!
 //! use automata_like_programming::automaton::{Automaton, NextState};
 //!
-//! /// Example implementation of an automaton state that appends specified text into
-//! /// mutable buffer.
+//! // Example implementation of an automaton state that appends specified text into
+//! // mutable buffer.
 //! pub struct TestState {
 //!     id: u8,
 //!     text: &'static str,
-//!     next_state: Option<SharedAutomatonState<'static, u8, String>>
+//!     next_state: Option<SharedAutomatonState<'static, u8, String, String>>
 //! }
 //! 
 //! impl TestState {
 //!     pub fn new(
 //!         id: u8, 
 //!         text: &'static str, 
-//!         next_state: Option<SharedAutomatonState<'static, u8, String>>
+//!         next_state: Option<SharedAutomatonState<'static, u8, String, String>>
 //!     ) -> Self {
 //!         Self { id, text, next_state }
 //!     }
 //! }
 //! 
-//! impl AutomatonState<'static, u8, String> for TestState {
+//! impl AutomatonState<'static, u8, String, String> for TestState {
 //!     fn get_id_owned(
 //!         &self
 //!     ) -> u8 {
@@ -45,7 +45,7 @@
 //!     fn execute_next_connection(
 //!         &self, 
 //!         data: &mut String
-//!     ) -> Result<NextState<'static, u8, String>, String> {
+//!     ) -> Result<NextState<'static, u8, String, String>, String> {
 //!         data.push_str(self.text);
 //!         if let Option::Some(nxt_state) = &self.next_state {
 //!             Result::Ok(NextState::Continue(Rc::clone(nxt_state)))
@@ -68,7 +68,8 @@
 //!     foo_state
 //! });
 //! let mut buffer = String::with_capacity(6);
-//! automaton.run(&mut buffer);
+//! let result = automaton.run(&mut buffer);
+//! assert!(result.is_could_not_find_next_state());
 //! assert_eq!("FooBar", buffer);
 //! ```
 /// Basic part of automaton representing a node which is connected to either other nodes or itself.
