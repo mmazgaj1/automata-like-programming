@@ -2,6 +2,8 @@ use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 use crate::automaton_state::{convert_to_dyn_reference, AutomatonState, SharedAutomatonState};
 
+pub type SharedSimpleState<'a, K, Id, D, E> = Rc<RefCell<SimpleStateImplementation<'a, K, Id, D, E>>>;
+
 /// Represents data, that can provide a key which will be used while searching for next state. Usually will use iterator
 /// based on a sequence.
 pub trait KeyProvidingData<K> {
@@ -35,7 +37,22 @@ impl <'a, K, Id, D, E> SimpleInterStateConnection<'a, K, Id, D, E> where Id: Cop
         Self::new(matcher, Self::do_nothing, next_state)
     }
 
-    /// Does nothing
+    /// Creates new connection which will always be matched and will execute function. Used for default connections.
+    pub fn new_always_matched<S: AutomatonState<'a, Id, D, E> + 'a, FExec: Fn(&mut D, &K) -> Result<(), E> + 'a>(exec_function: FExec, next_state: &Rc<RefCell<S>>) -> Self {
+        Self::new(Self::always_match, exec_function, next_state)
+    }
+
+    /// Creates new connection which will always be matched and will do nothing. Used for default connections.
+    pub fn new_no_action_always_matched<S: AutomatonState<'a, Id, D, E> + 'a>(next_state: &Rc<RefCell<S>>) -> Self {
+        Self::new_always_matched(Self::do_nothing,next_state)
+    }
+
+    /// Always matches.
+    fn always_match(_: &K) -> bool {
+        true
+    }
+
+    /// Does nothing.
     fn do_nothing(_:&mut D, _:&K) -> Result<(), E> {
         Result::Ok(())
     }

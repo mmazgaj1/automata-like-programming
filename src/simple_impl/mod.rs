@@ -99,3 +99,6 @@
 /// states and allows for some action to be executed while changing states. Designed to be used
 /// in parser like solutions.
 pub mod simple_state;
+/// Helper mechanism for defining sequences of states that go one by one and have a common default
+/// unmatched state.
+pub mod series;
