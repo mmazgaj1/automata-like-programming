@@ -5,6 +5,44 @@ use super::definer::SeriesDefiner;
 /// Helper for creating automata structures. Designed to manage owned states (not referenced outside builder until `build()` is called), however it allows 
 /// using states from outside of builder through functions marked as `external` (WARNING! Such states will be possibly modified on the fly in further calls
 /// even if `build()` is not called).
+/// # Examples
+/// ```
+/// # use std::{cell::RefCell, rc::Rc};
+/// # use automata_like_programming::{
+/// #   automaton::{
+/// #     AutomatonResult
+/// #   }, 
+/// #   automaton_state::{
+/// #     new_shared_concrete_state,
+/// #     AutomatonState
+/// #   }, 
+/// #   simple_impl::{
+/// #     series::definer::SeriesDefiner,
+/// #     simple_state::{
+/// #       KeyProvidingData,
+/// #       SimpleStateImplementation
+/// #     }
+/// #   }
+/// # };
+/// #
+/// # fn char_matcher(c: char) -> impl Fn(&char) -> bool {
+/// #   move |k: &char| *k == c
+/// # }
+/// #
+/// # pub struct TestData {}
+/// #
+/// # 
+/// #
+/// // Creates series of state that will match 'abc' character sequence or go back to root state anytime there is a mismatch.
+/// fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, TestData, String>>> {
+///   let root_state = new_shared_concrete_state(SimpleStateImplementation::new('x'));
+///   SeriesDefiner::new(&root_state)
+///   .next_connection(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
+///   .next_connection(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
+///   .next_connection(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
+///   root_state
+/// }
+/// ```
 pub struct SeriesBuilder<'a, K, Id: Copy, D: KeyProvidingData<K>, E> {
     root: SharedSimpleState<'a, K, Id, D, E>,
     definer: SeriesDefiner<'a, K, Id, D, E>,
@@ -19,6 +57,7 @@ impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesBuilder<'a, K, Id, D, E>
         }
     }
 
+    /// Creates new shared simple state and adds new connection to last added state with given matcher.
     pub fn next_connection<M>(mut self, matcher: M, next_state: SimpleStateImplementation<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E> 
     where M: 'a + Fn(&K) -> bool
     {

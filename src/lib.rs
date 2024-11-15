@@ -78,3 +78,5 @@ pub mod automaton_state;
 pub mod automaton;
 /// Simple implementations of automaton state.
 pub mod simple_impl;
+#[cfg(test)]
+pub mod test_commons;

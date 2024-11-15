@@ -80,37 +80,11 @@ impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesDefiner<'a, K, Id, D, E>
 mod test {
     use std::{cell::RefCell, rc::Rc};
 
-    use crate::{automaton::{Automaton, AutomatonResult}, automaton_state::{new_shared_concrete_state, AutomatonState}, simple_impl::simple_state::{KeyProvidingData, SimpleStateImplementation}};
+    use crate::{automaton::{Automaton, AutomatonResult}, automaton_state::{new_shared_concrete_state, AutomatonState}, simple_impl::simple_state::SimpleStateImplementation, test_commons::{char_matcher, unwrap_result, CopiedTestData}};
 
     use super::SeriesDefiner;
 
-    struct TestData {
-        iter: usize,
-        chars: Vec<char>,
-    }
-
-    impl TestData {
-        pub fn new(chars: Vec<char>) -> Self {
-            Self { iter: 0, chars }
-        }
-    }
-
-    impl KeyProvidingData<char> for TestData {
-        fn next_key(&mut self) -> Option<char> {
-            let ret = self.chars.get(self.iter);
-            self.iter += 1;
-            if let Some(c) = ret {
-                return Option::Some(*c)
-            }
-            Option::None
-        }
-    }
-
-    fn char_matcher(c: char) -> impl Fn(&char) -> bool {
-        move |k: &char| *k == c
-    }
-
-    fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, TestData, String>>> {
+    fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, CopiedTestData<char>, String>>> {
         let root_state = new_shared_concrete_state(SimpleStateImplementation::new('x'));
         SeriesDefiner::new(&root_state)
         .next_connection(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
@@ -122,39 +96,24 @@ mod test {
     #[test]
     fn series_full_match() -> () {
         let mut automaton = Automaton::new(create_abc_series_state_tree);
-        let mut data = TestData::new(vec!['a', 'b', 'c']);
+        let mut data = CopiedTestData::new(vec!['a', 'b', 'c']);
         let automaton_result: AutomatonResult<char, String> = automaton.run(&mut data);
-        assert!(automaton_result.is_empty_iter());
-        if let AutomatonResult::EmptyIter(id) = automaton_result {
-            assert_eq!(id, 'c');
-        } else {
-            panic!("Invalid result")
-        }
+        assert_eq!(unwrap_result!(automaton_result.expect_empty_iter()), 'c');
     }
 
     #[test]
     fn series_back_to_default() -> () {
         let mut automaton = Automaton::new(create_abc_series_state_tree);
-        let mut data = TestData::new(vec!['a', 'b', 'd']);
+        let mut data = CopiedTestData::new(vec!['a', 'b', 'd']);
         let automaton_result: AutomatonResult<char, String> = automaton.run(&mut data);
-        assert!(automaton_result.is_empty_iter());
-        if let AutomatonResult::EmptyIter(id) = automaton_result {
-            assert_eq!(id, 'x');
-        } else {
-            panic!("Invalid result")
-        }
+        assert_eq!(unwrap_result!(automaton_result.expect_empty_iter()), 'x');
     }
 
     #[test]
     fn series_no_more_sates() -> () {
         let mut automaton = Automaton::new(create_abc_series_state_tree);
-        let mut data = TestData::new(vec!['a', 'b', 'c', 'd']);
-        let automaton_result: AutomatonResult<char, String> = automaton.run(&mut data);
-        assert!(automaton_result.is_could_not_find_next_state());
-        if let AutomatonResult::CouldNotFindNextState(id) = automaton_result {
-            assert_eq!(id, 'c');
-        } else {
-            panic!("Invalid result")
-        }
+        let mut data = CopiedTestData::new(vec!['a', 'b', 'c', 'd']);
+        let automaton_result = automaton.run(&mut data).expect_could_not_find_next_state();
+        assert_eq!(unwrap_result!(automaton_result), 'c');
     }
 }

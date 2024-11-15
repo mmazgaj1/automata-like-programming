@@ -12,11 +12,6 @@ pub enum NextState<'a, Id, D, E> {
     NotFound,
 }
 
-/// Iterator for providing next key.
-pub trait KeyIter<K> {
-    fn next(&mut self) -> Option<K>;
-}
-
 /// Finite-state automaton that crawls around a specified graph until no more state changes can be done.
 pub struct Automaton<'a, Id, D, E> {
     start_state: SharedAutomatonState<'a, Id, D, E>,
@@ -53,6 +48,30 @@ impl <Id, E> AutomatonResult<Id, E> {
 
     pub fn is_error(&self) -> bool {
         return matches!(self, AutomatonResult::Error(_))
+    }
+
+    pub fn expect_empty_iter(self) -> Result<Id, AutomatonResult<Id, E>> {
+        if let AutomatonResult::EmptyIter(id) = self {
+            Result::Ok(id)
+        } else {
+            Result::Err(self)
+        }
+    }
+
+    pub fn expect_could_not_find_next_state(self) -> Result<Id, AutomatonResult<Id, E>> {
+        if let AutomatonResult::CouldNotFindNextState(id) = self {
+            Result::Ok(id)
+        } else {
+            Result::Err(self)
+        }
+    }
+
+    pub fn expect_error(&self) -> Result<&E, &AutomatonResult<Id, E>> {
+        if let AutomatonResult::Error(err) = self {
+            Result::Ok(err)
+        } else {
+            Result::Err(self)
+        }
     }
 }
 
