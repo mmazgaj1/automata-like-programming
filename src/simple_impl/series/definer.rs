@@ -45,21 +45,26 @@ use crate::simple_impl::simple_state::{KeyProvidingData, SharedSimpleState, Simp
 ///   root_state
 /// }
 /// ```
-pub struct SeriesDefiner<'a, K, Id: Copy, D: KeyProvidingData<K>, E, FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a> {
+pub struct SeriesDefiner<'a, K, Id: Copy, D: KeyProvidingData<K>, E> {
     default_state: SharedSimpleState<'a, K, Id, D, E>,
-    default_execution: Arc<FDExec>,
+    default_execution: Arc<dyn Fn(&mut D, &K) -> Result<(), E> + 'a>,
     // default_execution: FDExec,
     state: SharedSimpleState<'a, K, Id, D, E>,
 }
 
-impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E, FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a> SeriesDefiner<'a, K, Id, D, E, FDExec> {
+impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesDefiner<'a, K, Id, D, E> {
     /// Creates new `SeriesDefiner` which defaults unmatched connections to the same node it starts from.
-    pub fn new(starting_state: &SharedSimpleState<'a, K, Id, D, E>, default_execution_function: FDExec) -> SeriesDefiner<'a, K, Id, D, E, FDExec> {
+    pub fn new_without_default_action(starting_state: &SharedSimpleState<'a, K, Id, D, E>) -> SeriesDefiner<'a, K, Id, D, E> {
+        Self::new(starting_state, |_, _| {Result::Ok(())})
+    }
+
+    /// Creates new `SeriesDefiner` which defaults unmatched connections to the same node it starts from.
+    pub fn new<FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a>(starting_state: &SharedSimpleState<'a, K, Id, D, E>, default_execution_function: FDExec) -> SeriesDefiner<'a, K, Id, D, E> {
         Self::new_different_default_state(starting_state, starting_state, default_execution_function)
     }
 
     /// Creates new `SeriesDefiner` with possible different starting and default states.
-    pub fn new_different_default_state(starting_state: &SharedSimpleState<'a, K, Id, D, E>, default_state: &SharedSimpleState<'a, K, Id, D, E>, default_execution_function: FDExec) -> SeriesDefiner<'a, K, Id, D, E, FDExec> {
+    pub fn new_different_default_state<FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a>(starting_state: &SharedSimpleState<'a, K, Id, D, E>, default_state: &SharedSimpleState<'a, K, Id, D, E>, default_execution_function: FDExec) -> SeriesDefiner<'a, K, Id, D, E> {
         SeriesDefiner {
             state: Rc::clone(&starting_state),
             default_state: Rc::clone(&default_state),
@@ -69,7 +74,7 @@ impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E, FDExec: Fn(&mut D, &K) -> Resu
     
     /// Adds connection to currently processed state. No function is executed when changing state. Creates a default connection 
     /// to starting state as well.
-    pub fn next_connection<M>(mut self, matcher: M, next_state: &SharedSimpleState<'a, K, Id, D, E>) -> SeriesDefiner<'a, K, Id, D, E, FDExec> 
+    pub fn next_state<M>(mut self, matcher: M, next_state: &SharedSimpleState<'a, K, Id, D, E>) -> SeriesDefiner<'a, K, Id, D, E> 
     where M: 'a + Fn(&K) -> bool
     {
         self.state.borrow_mut().register_connection(SimpleInterStateConnection::new_no_action(matcher, next_state));
@@ -91,9 +96,9 @@ mod test {
     fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, CopiedTestData<char>, String>>> {
         let root_state = new_shared_concrete_state(SimpleStateImplementation::new('x'));
         SeriesDefiner::new(&root_state, |_, _| {Result::Ok(())})
-        .next_connection(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
-        .next_connection(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
-        .next_connection(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
+        .next_state(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
+        .next_state(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
+        .next_state(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
         root_state
     }
 
