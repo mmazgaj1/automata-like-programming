@@ -43,22 +43,22 @@ use super::definer::SeriesDefiner;
 ///   root_state
 /// }
 /// ```
-pub struct SeriesBuilder<'a, K, Id: Copy, D: KeyProvidingData<K>, E> {
+pub struct SeriesBuilder<'a, K, Id: Copy, D: KeyProvidingData<K>, E, FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a> {
     root: SharedSimpleState<'a, K, Id, D, E>,
-    definer: SeriesDefiner<'a, K, Id, D, E>,
+    definer: SeriesDefiner<'a, K, Id, D, E, FDExec>,
 }
 
-impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesBuilder<'a, K, Id, D, E> {
-    pub fn new(root: SimpleStateImplementation<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E> {
+impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E, FDExec: Fn(&mut D, &K) -> Result<(), E> + 'a> SeriesBuilder<'a, K, Id, D, E, FDExec> {
+    pub fn new(root: SimpleStateImplementation<'a, K, Id, D, E>, default_execution_function: FDExec) -> SeriesBuilder<'a, K, Id, D, E, FDExec> {
         let root_shared = new_shared_concrete_state(root);
         SeriesBuilder {
-            definer: SeriesDefiner::new(&root_shared),
+            definer: SeriesDefiner::new(&root_shared, default_execution_function),
             root: root_shared,
         }
     }
 
     /// Creates new shared simple state and adds new connection to last added state with given matcher.
-    pub fn next_connection<M>(mut self, matcher: M, next_state: SimpleStateImplementation<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E> 
+    pub fn next_connection<M>(mut self, matcher: M, next_state: SimpleStateImplementation<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E, FDExec> 
     where M: 'a + Fn(&K) -> bool
     {
         let next_state_shared = new_shared_concrete_state(next_state);
@@ -68,7 +68,7 @@ impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesBuilder<'a, K, Id, D, E>
 
     /// WARNING: Passed state will be modified after creating next connection, even before `build()` is called. Use with caution.
     /// Creates connection from last appended state to specified state.
-    pub fn next_connection_external<M>(mut self, matcher: M, next_state: &SharedSimpleState<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E> 
+    pub fn next_connection_external<M>(mut self, matcher: M, next_state: &SharedSimpleState<'a, K, Id, D, E>) -> SeriesBuilder<'a, K, Id, D, E, FDExec> 
     where M: 'a + Fn(&K) -> bool
     {
         self.definer = self.definer.next_connection(matcher, next_state);
