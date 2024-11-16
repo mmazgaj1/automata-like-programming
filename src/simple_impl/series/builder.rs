@@ -2,9 +2,7 @@ use crate::{automaton_state::new_shared_concrete_state, simple_impl::simple_stat
 
 use super::definer::SeriesDefiner;
 
-/// Helper for creating automata structures. Designed to manage owned states (not referenced outside builder until `build()` is called), however it allows 
-/// using states from outside of builder through functions marked as `external` (WARNING! Such states will be possibly modified on the fly in further calls
-/// even if `build()` is not called).
+/// Allows for quick definition of chain of states that follow single path.
 /// # Examples
 /// ```
 /// # use std::{cell::RefCell, rc::Rc};
@@ -17,7 +15,7 @@ use super::definer::SeriesDefiner;
 /// #     AutomatonState
 /// #   }, 
 /// #   simple_impl::{
-/// #     series::definer::SeriesDefiner,
+/// #     series::builder::SeriesBuilder,
 /// #     simple_state::{
 /// #       KeyProvidingData,
 /// #       SimpleStateImplementation
@@ -31,16 +29,19 @@ use super::definer::SeriesDefiner;
 /// #
 /// # pub struct TestData {}
 /// #
-/// # 
+/// # impl KeyProvidingData<char> for TestData {
+/// #   fn next_key(&mut self) -> Option<char> {
+/// #     Option::Some('a')
+/// #   }
+/// # }
 /// #
 /// // Creates series of state that will match 'abc' character sequence or go back to root state anytime there is a mismatch.
 /// fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, TestData, String>>> {
-///   let root_state = new_shared_concrete_state(SimpleStateImplementation::new('x'));
-///   SeriesDefiner::new(&root_state)
-///   .next_connection(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
-///   .next_connection(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
-///   .next_connection(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
-///   root_state
+///   SeriesBuilder::new_without_default_action(SimpleStateImplementation::new('x'))
+///   .next_state(char_matcher('a'), SimpleStateImplementation::new('a'))
+///   .next_state(char_matcher('b'), SimpleStateImplementation::new('b'))
+///   .next_state(char_matcher('c'), SimpleStateImplementation::new('c'))
+///   .build()
 /// }
 /// ```
 pub struct SeriesBuilder<'a, K, Id: Copy, D: KeyProvidingData<K>, E> {

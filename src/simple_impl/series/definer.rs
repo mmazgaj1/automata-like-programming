@@ -38,10 +38,10 @@ use crate::simple_impl::simple_state::{KeyProvidingData, SharedSimpleState, Simp
 /// // Creates series of state that will match 'abc' character sequence or go back to root state anytime there is a mismatch.
 /// fn create_abc_series_state_tree() -> Rc<RefCell<dyn AutomatonState<'static, char, TestData, String>>> {
 ///   let root_state = new_shared_concrete_state(SimpleStateImplementation::new('x'));
-///   SeriesDefiner::new(&root_state)
-///   .next_connection(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
-///   .next_connection(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
-///   .next_connection(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
+///   SeriesDefiner::new_without_default_action(&root_state)
+///   .next_state(char_matcher('a'), &new_shared_concrete_state(SimpleStateImplementation::new('a')))
+///   .next_state(char_matcher('b'), &new_shared_concrete_state(SimpleStateImplementation::new('b')))
+///   .next_state(char_matcher('c'), &new_shared_concrete_state(SimpleStateImplementation::new('c')));
 ///   root_state
 /// }
 /// ```
@@ -78,6 +78,20 @@ impl <'a, K, Id: Copy, D: KeyProvidingData<K>, E> SeriesDefiner<'a, K, Id, D, E>
     where M: 'a + Fn(&K) -> bool
     {
         self.state.borrow_mut().register_connection(SimpleInterStateConnection::new_no_action(matcher, next_state));
+        let default_exec_function = Arc::clone(&self.default_execution);
+        self.state.borrow_mut().register_connection(SimpleInterStateConnection::new_always_matched(move |k,d| (default_exec_function)(k, d), &self.default_state));
+        self.state = Rc::clone(next_state);
+        self
+    }
+
+    /// Adds connection to currently processed state. Given function is executed when changing state. Creates a default connection 
+    /// to starting state as well.
+    pub fn next_state_exec<M, FExec>(mut self, matcher: M, next_state: &SharedSimpleState<'a, K, Id, D, E>, execution_function: FExec) -> SeriesDefiner<'a, K, Id, D, E> 
+    where
+    M: 'a + Fn(&K) -> bool,
+    FExec: 'a + Fn(&mut D, &K) -> Result<(), E>
+    {
+        self.state.borrow_mut().register_connection(SimpleInterStateConnection::new(matcher, execution_function, next_state));
         let default_exec_function = Arc::clone(&self.default_execution);
         self.state.borrow_mut().register_connection(SimpleInterStateConnection::new_always_matched(move |k,d| (default_exec_function)(k, d), &self.default_state));
         self.state = Rc::clone(next_state);
