@@ -56,7 +56,7 @@ pub mod builder;
 /// #     }
 /// # }
 /// 
-/// let mut automaton = Automaton::new(|| {
+/// let mut automaton = Automaton::new({
 /// let root: Rc<RefCell<SimpleStateImplementation<'_, (usize, char), u8, MatchListCopiedTestData<char>, String>>> = new_shared_concrete_state(SimpleStateImplementation::new(0));
 /// let a2: Rc<RefCell<SimpleStateImplementation<'_, (usize, char), u8, MatchListCopiedTestData<char>, String>>> = new_shared_concrete_state(SimpleStateImplementation::new(4));
 /// 
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn series_from_string() -> () {
-        let mut automaton = Automaton::new(|| {
+        let mut automaton = Automaton::new({
             let root: Rc<RefCell<SimpleStateImplementation<'_, (usize, char), u8, MatchListCopiedTestData<char>, String>>> = new_shared_concrete_state(SimpleStateImplementation::new(0));
             let a2: Rc<RefCell<SimpleStateImplementation<'_, (usize, char), u8, MatchListCopiedTestData<char>, String>>> = new_shared_concrete_state(SimpleStateImplementation::new(4));
 

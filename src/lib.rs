@@ -55,7 +55,7 @@
 //!     }
 //! }
 //! 
-//! let mut automaton = Automaton::new(|| {
+//! let mut automaton = Automaton::new({
 //!     // First we create the "Bar" state as it's the last state and it doesn't connect to
 //!     // any other state.
 //!     let bar_state = new_shared_automaton_state(
@@ -78,5 +78,6 @@ pub mod automaton_state;
 pub mod automaton;
 /// Simple implementations of automaton state.
 pub mod simple_impl;
+/// Common implementations for testing purposes.
 #[cfg(test)]
 pub mod test_commons;

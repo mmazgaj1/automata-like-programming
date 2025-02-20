@@ -153,7 +153,7 @@ mod test {
         #[test]
         fn automaton_with_simple_states_works() -> () {
             let mut data = TestData::new(1, 4);
-            let mut automaton = Automaton::new(|| {
+            let mut automaton = Automaton::new({
                 let world_state = new_shared_concrete_state(SimpleStateImplementation::new(3));
                 let simple_state = new_shared_concrete_state(SimpleStateImplementation::new(2));
                 simple_state.borrow_mut().register_connection(SimpleInterStateConnection::new(|k| k == &2, |d: &mut TestData, _| {
@@ -181,9 +181,7 @@ mod test {
         #[test]
         fn automaton_with_simple_states_works_no_next_state_found() -> () {
             let mut data = TestData::new(2, 3);
-            let mut automaton = Automaton::new(|| {
-                new_shared_concrete_state(SimpleStateImplementation::new(1))
-            });
+            let mut automaton = Automaton::new(new_shared_concrete_state(SimpleStateImplementation::new(1)));
             let run_result: AutomatonResult<u32, String> = automaton.run(&mut data);
             assert_eq!(data.data(), "");
             assert!(matches!(run_result, AutomatonResult::CouldNotFindNextState(1)));

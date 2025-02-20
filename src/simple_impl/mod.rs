@@ -56,7 +56,7 @@
 //! }
 //! 
 //! let mut matching_data = TextMatching::new("aabbacacaabab");
-//! let mut automaton: Automaton<u32, TextMatching, String> = Automaton::new(|| {
+//! let mut automaton: Automaton<u32, TextMatching, String> = Automaton::new({
 //!     let non_match_state = new_shared_concrete_state(SimpleStateImplementation::new(0));
 //!     non_match_state.borrow_mut().register_connection(
 //!         SimpleInterStateConnection::new_no_action(char_matcher('a', true), &non_match_state)

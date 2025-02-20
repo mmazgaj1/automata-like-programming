@@ -77,8 +77,13 @@ impl <Id, E> AutomatonResult<Id, E> {
 
 impl <'a, Id, D, E> Automaton<'a, Id, D, E> {
     /// Creates new automaton with graph initiated by specified function.
-    pub fn new<FInit: Fn() -> SharedAutomatonState<'a, Id, D, E>>(f_state_graph_init: FInit) -> Self {
-        Self {start_state: f_state_graph_init(), _data_phantom: PhantomData{}, _error_phantom: PhantomData{}}
+    pub fn new_init_fn<FInit: Fn() -> SharedAutomatonState<'a, Id, D, E>>(f_state_graph_init: FInit) -> Self {
+        Self::new(f_state_graph_init())
+    }
+
+    /// Creates new automaton with graph starting at specified state.
+    pub fn new(graph_root_state: SharedAutomatonState<'a, Id, D, E>) -> Self {
+        Self {start_state: graph_root_state, _data_phantom: PhantomData{}, _error_phantom: PhantomData{}}
     }
 
     /// Starts automaton with given data.
@@ -166,7 +171,7 @@ pub mod test {
     #[test]
     fn automaton_2_nodes_works() -> () {
         let mut data = String::with_capacity(11);
-        let mut automaton = Automaton::new(|| {
+        let mut automaton = Automaton::new({
             let world_state: SharedAutomatonState<u8, String, _> = new_shared_automaton_state(TestNodeWorld::new());
             let hello_state: SharedAutomatonState<u8, String, _> = new_shared_automaton_state(TestNodeHello::new(Option::Some(Rc::clone(&world_state))));
             hello_state

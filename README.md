@@ -60,7 +60,7 @@ impl AutomatonState<'static, u8, String, String> for TestState {
     }
 }
 
-let mut automaton = Automaton::new(|| {
+let mut automaton = Automaton::new({
     // First we create the "Bar" state as it's the last state and it doesn't connect to
     // any other state.
     let bar_state = new_shared_automaton_state(
@@ -136,7 +136,7 @@ fn char_matcher(
 }
 
 let mut matching_data = TextMatching::new("aabbacacaabab");
-let mut automaton: Automaton<u32, TextMatching, String> = Automaton::new(|| {
+let mut automaton: Automaton<u32, TextMatching, String> = Automaton::new({
     let non_match_state = new_shared_concrete_state(SimpleStateImplementation::new(0));
     non_match_state.borrow_mut().register_connection(
         SimpleInterStateConnection::new_no_action(char_matcher('a', true), &non_match_state)

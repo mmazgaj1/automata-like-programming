@@ -118,7 +118,7 @@ mod test {
 
     #[test]
     fn series_full_match() -> () {
-        let mut automaton = Automaton::new(create_abc_series_state_tree);
+        let mut automaton = Automaton::new(create_abc_series_state_tree());
         let mut data = CopiedTestData::new(vec!['a', 'b', 'c']);
         let automaton_result: AutomatonResult<char, String> = automaton.run(&mut data);
         assert_eq!(unwrap_result!(automaton_result.expect_empty_iter()), 'c');
@@ -126,7 +126,7 @@ mod test {
 
     #[test]
     fn series_back_to_default() -> () {
-        let mut automaton = Automaton::new(create_abc_series_state_tree);
+        let mut automaton = Automaton::new(create_abc_series_state_tree());
         let mut data = CopiedTestData::new(vec!['a', 'b', 'd']);
         let automaton_result: AutomatonResult<char, String> = automaton.run(&mut data);
         assert_eq!(unwrap_result!(automaton_result.expect_empty_iter()), 'x');
@@ -134,7 +134,7 @@ mod test {
 
     #[test]
     fn series_no_more_sates() -> () {
-        let mut automaton = Automaton::new(create_abc_series_state_tree);
+        let mut automaton = Automaton::new(create_abc_series_state_tree());
         let mut data = CopiedTestData::new(vec!['a', 'b', 'c', 'd']);
         let automaton_result = automaton.run(&mut data).expect_could_not_find_next_state();
         assert_eq!(unwrap_result!(automaton_result), 'c');
