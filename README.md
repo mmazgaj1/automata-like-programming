@@ -172,3 +172,67 @@ let result = automaton.run(&mut matching_data);
 assert!(result.is_empty_iter());
 assert_eq!(matching_data.matches, vec![1, 9, 11]);
 ```
+
+## Series of states (since v0.2.0)
+
+``` rust
+use std::{
+    cell::RefCell, 
+    rc::Rc
+};
+
+use crate::{
+    automaton::Automaton, 
+    automaton_state::new_shared_concrete_state, 
+    series, 
+    simple_impl::simple_state::{
+        KeyProvidingData, 
+        SimpleStateImplementation
+    }
+};
+
+struct TextProvidingData {
+    iter: usize,
+    characters: Vec<char>,
+}
+
+impl TextProvidingData {
+    pub fn new(text: &str) -> Self {
+        Self { iter: 0, characters: text.chars().collect() }
+    }
+}
+
+impl KeyProvidingData<(usize, char)> for TextProvidingData {
+    fn next_key(&mut self) -> Option<(usize, char)> {
+        let res = self.characters.get(self.iter).map(|v| (self.iter, *v));
+        self.iter += 1;
+        res
+    }
+}
+
+fn enumerated_char_matcher(c: char) -> impl Fn(&(usize, char)) -> bool {
+    move |k: &(usize, char)| k.1 == c
+}
+
+let mut automaton = Automaton::new({
+    let root = new_shared_concrete_state(
+        SimpleStateImplementation::new(0)
+    );
+
+    let _ = series!(
+    // Iterator for generating states
+    "foo".chars(),
+    // Root node which will be the start of the series
+    root,
+    // Generator for matchers - creates matchers for enumerated elements from iterator
+    enumerated_char_matcher,
+    // Id generator - creates id values to be placed in states
+    |i, _| i as u8);
+    root
+});
+let mut data = TextProvidingData::new("foo");
+let automaton_result = automaton.run(&mut data);
+let id = automaton_result.expect_empty_iter().unwrap_or_else(|_| panic!("Invalid automaton result."));
+assert_eq!(id, 2);
+
+```
