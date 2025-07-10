@@ -232,7 +232,9 @@ let mut automaton = Automaton::new({
 });
 let mut data = TextProvidingData::new("foo");
 let automaton_result = automaton.run(&mut data);
-let id = automaton_result.expect_empty_iter().unwrap_or_else(|_| panic!("Invalid automaton result."));
+let id = automaton_result
+            .expect_empty_iter()
+            .unwrap_or_else(|_| panic!("Invalid automaton result."));
 assert_eq!(id, 2);
 
 ```
